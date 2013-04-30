@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.Serialization.Formatters.Binary;
 
-using PluginUtilities;
+//using PluginUtilities;
 using UnityEngine;
 
 using KSP;
@@ -358,19 +358,12 @@ namespace FuelModule
 		
 		[KSPField(isPersistant = true)] 
 		public float volume = 0.0f;
-		
-		[KSPField(isPersistant = true)]
-		public string storeFuelList = "";
-		
+
 		public FuelEntryList fuelList;
-		
 		
 		public override void OnLoad(ConfigNode node)
 		{
 			print ("moduleFuelTanks.onLoad");
-			
-			storeFuelList = PluginUtility.Pack (node);
-
 			fuelList.module = this;
 
 			if(basemass == 0 && part != null)
@@ -400,9 +393,6 @@ namespace FuelModule
 		
 		public override void OnStart (StartState state)
 		{
-
-			print ("moduleFuelTanks.onStart");
-
 			fuelList.module = this;
 
 			if(basemass == 0 && part != null)
@@ -410,36 +400,28 @@ namespace FuelModule
 			
 			switch(state) {
 			case StartState.Editor:
-				print ("state=Editor");
 				// when we get called from the editor, the fuelList won't be populated
 				// because OnLoad() was never called. This is a hack to fix that.
 				print ("moduleFuelTanks.OnStart with empty fuelList.");
-				if(storeFuelList.Length > 0) {
-					print ("Reading from serialized string.");
-					ConfigNode node = PluginUtility.Unpack (storeFuelList);
+				ProtoPartModuleSnapshot proto = part.protoPartRef.protoModules.Find (m => m.moduleName.Equals ("moduleFuelTanks"));
+				if(proto != null) {
+					print ("found prototype module");
+					ConfigNode node = new ConfigNode("MODULE");
+					proto.moduleRef.Save (node); //PluginUtility.Unpack (storeFuelList);
 
 					print ("loading from converted node:" + node.ToString());
 					fuelList.Load (node);
 				}
 				break;
 			default:
-				print ("state={Orbital, SubOrbital, Landed, Docked, or Flying}");
-//				if(timestamp == 0)
-//					timestamp = Planetarium.GetUniversalTime();
-
 				break;
 			}
-			print ("moduleFuelTanks started");
 		}
 		
 		
 		public override void OnSave (ConfigNode node)
 		{
-			print ("moduleFuelTanks.onSave");
 			fuelList.Save (node);
-			storeFuelList = PluginUtility.Pack (node);
-
-			print ("moduleFuelTanks saved.");
 		}
 		
 		public override void OnUpdate ()
