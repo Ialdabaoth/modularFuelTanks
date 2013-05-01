@@ -23,7 +23,7 @@ namespace FuelModule
 		// loss_rate = how quickly this resource type bleeds out of the tank
 
 		[Serializable]
-		public class FuelTank
+		public class FuelTank: IConfigNode
 		{
 			//------------------- fields
 			public string name;
