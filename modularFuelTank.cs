@@ -263,16 +263,25 @@ namespace FuelModule
 
 			if (fuelList.Count == 0) {
 				print ("ModuleFuelTanks.OnStart with empty fuelList.");
-				if(part.partInfo != null && part.partInfo.partPrefab != null)
-				{
-					Part prefab = part.partInfo.partPrefab;
+				AvailablePart partData = PartLoader.LoadedPartsList.Find (p=>p.name.Equals (part.name));
+				if(partData == null) {
+					print ("Could not find AvailablePart for " + part.name);
+				} else if(partData.partPrefab == null) {
+					print ("AvailablePart.partPrefab is null.");
+				} else {
+					Part prefab = partData.partPrefab;
 					if(!prefab.Modules.Contains ("ModuleFuelTanks"))
 					{
+						print ("AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
 					} else {
 						ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
-						ConfigNode node = new ConfigNode("MODULE");
-						pModule.OnSave (node);
-						this.OnLoad (node);
+						if(pModule == this)
+							print ("Copying from myself won't do any good.");
+						else {
+							ConfigNode node = new ConfigNode("MODULE");
+							pModule.OnSave (node);
+							this.OnLoad (node);
+						}
 					}
 				}
 			} else {
