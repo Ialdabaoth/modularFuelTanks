@@ -46,10 +46,6 @@
       <Private>False</Private>
       <Package>/Applications/Kerbal Space Program/KSP.app/Contents/Data/Managed/UnityEngine.dll</Package>
     </Reference>
-    <Reference Include="PluginUtilities, Version=1.0.4867.41669, Culture=neutral">
-      <Private>False</Private>
-      <Package>/Applications/Kerbal Space Program/RealismMod/Plugins/PluginUtilities.dll</Package>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
