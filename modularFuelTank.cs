@@ -223,7 +223,7 @@ namespace FuelModule
 
 			foreach (ConfigNode tankNode in node.nodes) {
 				if(tankNode.name.Equals ("TANK")) {
-					print ("loading FuelTank from node " + node.ToString ());
+					print ("loading FuelTank from node " + tankNode.ToString ());
 					FuelTank tank = new FuelTank();
 					tank.module = this;
 					tank.Load (tankNode);
