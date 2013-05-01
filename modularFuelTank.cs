@@ -248,12 +248,6 @@ namespace FuelModule
 			}
 		}
 
-		public override void OnAwake()
-		{
-			if (fuelList == null) {
-				fuelList = new List<ModuleFuelTanks.FuelTank> ();
-			}
-		}
 
 		public override void OnStart (StartState state)
 		{
@@ -263,9 +257,24 @@ namespace FuelModule
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
 			if(fuelList == null) {
-				print ("[ERROR]: ModuleFuelTanks.OnStart with null fuelList.");
-			} else if (fuelList.Count == 0) {
+				print ("ModuleFuelTanks.OnStart with null fuelList.");
+				fuelList = new List<ModuleFuelTanks.FuelTank> ();
+			}
+
+			if (fuelList.Count == 0) {
 				print ("ModuleFuelTanks.OnStart with empty fuelList.");
+				if(part.partInfo != null && part.partInfo.partPrefab != null)
+				{
+					Part prefab = part.partInfo.partPrefab;
+					if(!prefab.Modules.Contains ("ModuleFuelTanks"))
+					{
+					} else {
+						ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
+						ConfigNode node = new ConfigNode("MODULE");
+						pModule.OnSave (node);
+						this.OnLoad (node);
+					}
+				}
 			} else {
 				foreach(FuelTank tank in fuelList)
 					tank.module = this;
