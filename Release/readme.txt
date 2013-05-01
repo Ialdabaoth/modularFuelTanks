@@ -6,12 +6,12 @@ Released through GPL3.0 (http://www.gnu.org/licenses/gpl.html)
 
 HOW IT WORKS:
 
-1. First, you need a part configured with a moduleFuelTanks, like so:
+1. First, you need a part configured with a ModuleFuelTanks, like so:
 
 
 MODULE
 {
-	name = moduleFuelTanks
+	name = ModuleFuelTanks
 	volume = 400
 	basemass = 0.25
 	TANK
