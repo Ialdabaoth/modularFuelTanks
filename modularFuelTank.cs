@@ -22,8 +22,8 @@ namespace FuelModule
 		// mass = how much the part's mass is increased per volume unit of tank installed for this resource type
 		// loss_rate = how quickly this resource type bleeds out of the tank
 
-		[System.Serializable]
-		public class FuelTank: IConfigNode
+		[Serializable]
+		public class FuelTank
 		{
 			//------------------- fields
 			public string name;
@@ -210,7 +210,6 @@ namespace FuelModule
 		[KSPField(isPersistant = true)] 
 		public float volume = 0.0f;
 
-//		[KSPField(isPersistant = true)] 
 		public List<FuelTank> fuelList;
 		
 		public override void OnLoad(ConfigNode node)
