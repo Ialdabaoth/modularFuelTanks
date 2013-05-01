@@ -216,6 +216,11 @@ namespace FuelModule
 		{
 			print ("========OnLoad called. Node is:=======");
 			print (node.ToString ());
+			if (fuelList == null)
+				fuelList = new List<FuelTank> ();
+			else
+				fuelList.Clear ();
+
 			foreach (ConfigNode tankNode in node.nodes) {
 				if(tankNode.name.Equals ("TANK")) {
 					print ("loading FuelTank from node " + node.ToString ());
