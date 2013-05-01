@@ -26,7 +26,7 @@ namespace FuelModule
 		public class FuelTank: IConfigNode
 		{
 			//------------------- fields
-			public string name;
+			public string name = "UnknownFuel";
 			public float efficiency = 1.0f;
 			public float mass = 0.0f;
 			public double loss_rate = 0.0f;
@@ -147,6 +147,18 @@ namespace FuelModule
 						double.TryParse (node.GetValue("loss_rate"), out loss_rate);
 					if(node.HasValue ("mass"))
 						float.TryParse (node.GetValue("mass"), out mass);
+					if(node.HasValue ("maxAmount")) {
+						double v;
+						double.TryParse(node.GetValue ("maxAmount"), out v);
+						maxAmount = v;
+						if(node.HasValue ("amount")) {
+							double.TryParse(node.GetValue ("amount"), out v);
+							amount = v;
+						} else {
+							amount = 0.0;
+						}
+
+					}
 				};
 			}
 			
@@ -157,6 +169,10 @@ namespace FuelModule
 					node.AddValue ("efficiency", efficiency);
 					node.AddValue ("mass", mass);
 					node.AddValue ("loss_rate", loss_rate);
+					if(HighLogic.LoadedSceneIsEditor) {
+						node.AddValue ("amount", amount);
+						node.AddValue ("maxAmount", amount);
+					}
 				}
 			}
 
@@ -209,7 +225,6 @@ namespace FuelModule
 		[KSPField(isPersistant = true)] 
 		public float volume = 0.0f;
 
-		[KSPField(isPersistant = true)] 
 		public List<FuelTank> fuelList;
 		
 		public override void OnLoad(ConfigNode node)
@@ -262,7 +277,6 @@ namespace FuelModule
 			}
 
 			if (fuelList.Count == 0) {
-				print ("ModuleFuelTanks.OnStart with empty fuelList.");
 				AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
 				if(partData == null) {
 					print ("Could not find AvailablePart for " + part.partName);
@@ -442,8 +456,8 @@ namespace FuelModule
 					
 					GUILayout.Label(tank, GUILayout.Width (100));
 					
-					float amount = (float) part.Resources[tank].amount;
-					float maxAmount = (float) part.Resources[tank].maxAmount;
+					double amount = part.Resources[tank].amount;
+					double maxAmount = part.Resources[tank].maxAmount;
 					
 					GUIStyle color = new GUIStyle(GUI.skin.textField);
 					if(textFields[amountField].Equals (amount.ToString ()))
@@ -466,12 +480,12 @@ namespace FuelModule
 					if(GUILayout.Button ("Update", GUILayout.Width (60))) {
 						
 						print ("Clicked Update {" + tank + "}");
-						float newMaxAmount = maxAmount;
-						if(!float.TryParse (textFields[maxAmountField], out newMaxAmount))
+						double newMaxAmount = maxAmount;
+						if(!double.TryParse (textFields[maxAmountField], out newMaxAmount))
 							newMaxAmount = maxAmount;
 						
-						float newAmount = amount;
-						if(!float.TryParse(textFields[amountField], out newAmount))
+						double newAmount = amount;
+						if(!double.TryParse(textFields[amountField], out newAmount))
 							newAmount = amount;
 						
 						print (" current amount = " + amount + ", new value = " + newAmount);
