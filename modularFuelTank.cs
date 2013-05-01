@@ -199,71 +199,6 @@ namespace FuelModule
 			}
 		}
 
-		public double GetAmount(string fuel)
-		{
-			FuelTank f = fuelList.Find (rn => rn.ToString().Equals(fuel));
-			
-			if (!f)
-				return 0.0f;
-			return f.amount;
-		}
-		
-		public double SetAmount(string fuel, double amount)
-		{
-			if (fuel == null) {
-				print ("fuel.SetMaxAmount: fuel is null");
-				return 0.0f;
-			}
-			
-			print ("fuel.SetAmount(" + fuel + ", " + amount + ")");
-			
-			FuelTank f = fuelList.Find (rn => rn.ToString().Equals(fuel));
-			if (!f) {
-				print ("fuelList did not find fuel " + fuel);
-				return 0.0f;
-			}
-			
-			print ("currently " + f.amount + ", maxAmount = " + f.maxAmount);
-			
-			f.amount = amount;
-			return f.amount;
-		}
-		
-		public double GetMaxAmount(string fuel)
-		{
-			FuelTank f = fuelList.Find (rn => rn.ToString().Equals(fuel));
-			
-			if (!f)
-				return 0.0f;
-			return f.maxAmount;
-		}
-		
-		public double SetMaxAmount(string fuel, double amount)
-		{
-			if (fuel == null) {
-				print ("fuel.SetMaxAmount: fuel is null");
-				return 0.0f;
-			}
-			
-			print ("fuel.SetMaxAmount(" + fuel + ", " + amount + ")");
-			
-			
-			print ("Attempting to set " + fuel + ".maxAmount to " + amount);
-			FuelTank f = fuelList.Find (rn => rn.ToString().Equals(fuel));
-			if (!f) {
-				print ("fuelList did not find fuel " + fuel);
-				return 0.0f;
-			}
-			
-			print ("currently " + f.maxAmount + ", availableVolume = " + availableVolume);
-			
-			f.maxAmount = amount;
-			return f.maxAmount;
-		}
-		
-		
-		
-		
 		//------------------- this is all KSP stuff
 		
 		[KSPField(isPersistant = true)] 
@@ -336,6 +271,7 @@ namespace FuelModule
 				// because OnLoad() was never called. This is a hack to fix that.
 
 				//FIXME: Hack caused crashing and memory leaks.
+
 				break;
 			default:
 				break;
@@ -540,7 +476,7 @@ namespace FuelModule
 						print ("Clicked Remove " + tank);
 						
 						textFields.Clear ();
-						fuel.SetMaxAmount (tank, 0);
+						tank.maxAmount = 0;
 					}
 					
 					GUILayout.Label ("  tank mass: " + Math.Round (1000 * amount * (part.Resources[tank].info.density) + tank.mass)/1000.0, GUILayout.Width(150));
@@ -552,7 +488,7 @@ namespace FuelModule
 					if(GUILayout.Button("Add", GUILayout.Width (60))) {
 						print ("Clicked Add " + tank);
 						textFields.Clear ();
-						fuel.SetMaxAmount (tank, fuel.availableVolume);
+						tank.maxAmount = fuel.availableVolume;
 					}
 					if(tank.efficiency < 1.0 && tank.mass > 0.0) {
 						GUILayout.Label(" (cryo: " + (Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f) + "%, " 
@@ -588,10 +524,13 @@ namespace FuelModule
 						ModuleFuelTanks pFuel = (ModuleFuelTanks) sPart.Modules["ModuleFuelTanks"];
 						if(pFuel)
 						{
-							foreach(string fuelName in fuel.fuelList)
+							foreach(ModuleFuelTanks.FuelTank tank in fuel.fuelList)
 							{
-								pFuel.SetAmount (fuelName, fuel.GetAmount(fuelName));
-								pFuel.SetMaxAmount (fuelName, fuel.GetMaxAmount(fuelName) );
+								ModuleFuelTanks.FuelTank pTank = pFuel.fuelList.Find (t => t.name.Equals (tank.name));
+								if(pTank) {
+									pTank.maxAmount = tank.maxAmount;
+									pTank.amount = tank.amount;
+								}
 							}
 						}
 					}
@@ -665,9 +604,11 @@ namespace FuelModule
 								foreach(ModuleEngines.Propellant tfuel in thruster.propellants)
 								{
 									if(PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
-										
-										fuel.SetMaxAmount (tfuel.name, (float) (total_volume * tfuel.ratio / ratio_factor));
-										fuel.SetAmount (tfuel.name, (float) (total_volume * tfuel.ratio / ratio_factor));
+										ModuleFuelTanks.FuelTank tank = fuel.fuelList.Find (t => t.name.Equals (tfuel.name));
+										if(tank) {
+											tank.maxAmount = total_volume * tfuel.ratio / ratio_factor;
+											tank.amount = total_volume * tfuel.ratio / ratio_factor;
+										}
 									}
 								}
 							}
