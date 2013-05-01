@@ -263,7 +263,7 @@ namespace FuelModule
 
 			if (fuelList.Count == 0) {
 				print ("ModuleFuelTanks.OnStart with empty fuelList.");
-				AvailablePart partData = PartLoader.LoadedPartsList.Find (p=>p.name.Equals (part.partName));
+				AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
 				if(partData == null) {
 					print ("Could not find AvailablePart for " + part.partName);
 				} else if(partData.partPrefab == null) {
