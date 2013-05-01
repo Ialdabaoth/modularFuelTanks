@@ -209,12 +209,13 @@ namespace FuelModule
 		[KSPField(isPersistant = true)] 
 		public float volume = 0.0f;
 
+		[KSPField(isPersistant = true)] 
 		public List<FuelTank> fuelList;
 		
 		public override void OnLoad(ConfigNode node)
 		{
-			print ("========OnLoad called. Node is:=======")
-				print (node.ToString ());
+			print ("========OnLoad called. Node is:=======");
+			print (node.ToString ());
 			foreach (ConfigNode tankNode in node.nodes) {
 				if(tankNode.name.Equals ("TANK")) {
 					print ("loading FuelTank from node " + node.ToString ());
@@ -252,7 +253,7 @@ namespace FuelModule
 		public override void OnStart (StartState state)
 		{
 			//fuelList.FuelTankle = this;
-			print ("========OnStart called. State is " + state.ToString () + "=======")
+			print ("========OnStart called. State is " + state.ToString () + "=======");
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
