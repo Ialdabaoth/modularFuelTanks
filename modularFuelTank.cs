@@ -387,7 +387,7 @@ namespace FuelModule
 
 			if (editor.editorScreen == EditorLogic.EditorScreen.Actions) {
 				if (EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleFuelTanks"))) {
-					Rect screenRect = new Rect(0, 365, 428, (Screen.height - 365));
+					Rect screenRect = new Rect(0, 365, 430, (Screen.height - 365));
 					GUILayout.Window (1, screenRect, fuelManagerGUI, "Fuel Tanks");
 				} else
 					textFields.Clear ();
@@ -426,20 +426,20 @@ namespace FuelModule
 			}
 			
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Current mass: " + Math.Round(1000*(part.mass + part.GetResourceMass()))/1000.0 + " Ton(s)");
-			GUILayout.Label ("Dry mass: " + Math.Round(1000*part.mass)/1000.0 + " Ton(s)");
+			GUILayout.Label ("Current mass: " + Math.Round(1000 * (part.mass + part.GetResourceMass())) / 1000.0 + " Ton(s)");
+			GUILayout.Label ("Dry mass: " + Math.Round(1000 * part.mass) / 1000.0 + " Ton(s)");
 			GUILayout.EndHorizontal ();
 
 			if (fuel.fuelList.Count == 0) {
 
 				GUILayout.BeginHorizontal();
-				GUILayout.Label ("This fuel tank cannot resources.");
+				GUILayout.Label ("This fuel tank cannot hold resources.");
 				GUILayout.EndHorizontal ();
 				return;
 			}
 
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Available volume: " + fuel.availableVolume + " / " + fuel.volume);
+			GUILayout.Label ("Available volume: " + Math.Floor (1000 * fuel.availableVolume) / 1000.0 + " / " + fuel.volume);
 			GUILayout.EndHorizontal ();
 			
 			int text_field = 0;
@@ -451,47 +451,49 @@ namespace FuelModule
 				text_field++;
 				if(textFields.Count < text_field) {
 					textFields.Add ("");
-					textFields[amountField] = tank.amount.ToString();
+					textFields[amountField] = (Math.Floor (1000 * tank.amount) / 1000.0).ToString();
 				}
 				int maxAmountField = text_field;
 				text_field++;
 				if(textFields.Count < text_field) {
 					textFields.Add ("");
-					textFields[maxAmountField] = tank.maxAmount.ToString();
+					textFields[maxAmountField] = (Math.Floor (1000 * tank.maxAmount) / 1000.0).ToString();
 				}
-				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0.0) {
-					
-					GUILayout.Label(tank, GUILayout.Width (100));
-					
-					double amount = part.Resources[tank].amount;
-					double maxAmount = part.Resources[tank].maxAmount;
+				GUILayout.Label(" " + tank, GUILayout.Width (120));
+				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0.0) {					
+
+					double amount = Math.Floor (1000 * part.Resources[tank].amount) / 1000.0;
+					double maxAmount = Math.Floor (1000 * part.Resources[tank].maxAmount) / 1000.0;
 					
 					GUIStyle color = new GUIStyle(GUI.skin.textField);
-					if(textFields[amountField].Equals (amount.ToString ()))
+					if(textFields[amountField].Trim().Equals ("")) // I'm not sure why this happens, but we'll fix it here.
+					   textFields[amountField] = (Math.Floor (1000 * tank.amount) / 1000.0).ToString();
+					else if(textFields[amountField].Equals (amount.ToString ()))
 						color.normal.textColor = Color.white;
 					else
 						color.normal.textColor = Color.yellow;
-					textFields[amountField] = GUILayout.TextField(textFields[amountField], color, GUILayout.Width (80));
+					textFields[amountField] = GUILayout.TextField(textFields[amountField], color, GUILayout.Width (65));
 					
-					GUILayout.Label("/", GUILayout.Width (10));
+					GUILayout.Label("/", GUILayout.Width (5));
 					
-					
+
 					color = new GUIStyle(GUI.skin.textField);
 					if(textFields[maxAmountField].Equals (maxAmount.ToString ()))
 						color.normal.textColor = Color.white;
 					else
 						color.normal.textColor = Color.yellow;
-					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], color, GUILayout.Width (80));
+					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], color, GUILayout.Width (65));
 					
-					
+					GUILayout.Label(" ", GUILayout.Width (5));
+
 					if(GUILayout.Button ("Update", GUILayout.Width (60))) {
 						
 						print ("Clicked Update {" + tank + "}");
-						double newMaxAmount = maxAmount;
+						double newMaxAmount = Math.Floor (1000 * maxAmount) / 1000.0;
 						if(!double.TryParse (textFields[maxAmountField], out newMaxAmount))
 							newMaxAmount = maxAmount;
 						
-						double newAmount = amount;
+						double newAmount = Math.Floor (1000 * amount) / 1000.0;
 						if(!double.TryParse(textFields[amountField], out newAmount))
 							newAmount = amount;
 						
@@ -520,41 +522,45 @@ namespace FuelModule
 					}
 					if(GUILayout.Button ("Remove", GUILayout.Width (60))) {
 						print ("Clicked Remove " + tank);
-						
-						textFields.Clear ();
 						tank.maxAmount = 0;
-						if(part.symmetryCounterparts.Count > 0) 
-							UpdateSymmetryCounterparts(part);
-						
-					}
-
-					GUILayout.EndHorizontal ();
-					GUILayout.BeginHorizontal ();
-					GUILayout.Label ("            tank mass: " + Math.Round (1000 * amount * part.Resources[tank].info.density + tank.mass)/1000.0, GUILayout.Width(210));
-					GUILayout.Label ("tank volume: " + (Math.Round (100 * maxAmount / tank.efficiency)/100).ToString (), GUILayout.Width (180));
-					
-				} else if(fuel.availableVolume > 0) {
-					GUILayout.Label(tank, GUILayout.Width (100));
-					
-					if(GUILayout.Button("Add", GUILayout.Width (60))) {
-						print ("Clicked Add " + tank);
 						textFields.Clear ();
-						tank.maxAmount = fuel.availableVolume;
+						if(part.symmetryCounterparts.Count > 0) 
+							UpdateSymmetryCounterparts(part);
+						
+					}
+
+//					GUILayout.EndHorizontal ();
+//					GUILayout.BeginHorizontal ();
+//					GUILayout.Label ("             tank mass: " + Math.Round (1000 * amount * part.Resources[tank].info.density + tank.mass) / 1000.0, GUILayout.Width(210));
+//					GUILayout.Label ("tank volume: " + Math.Round (1000 * maxAmount / tank.efficiency) / 1000.0, GUILayout.Width (210));
+					
+				} else if(fuel.availableVolume >= 0.001) {
+					string extraData = " ";
+					if(tank.efficiency < 1.0 && tank.mass > 0.0) {
+						extraData = "  (cryo: " + Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f + "%, " 
+							+ Math.Floor (1000 * tank.mass) / 1000.0 + " Tons/volume )";
+					} else if(tank.efficiency < 1.0) {
+						extraData = "  (cryo: " + Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f + "%)";
+					} else if(tank.mass > 0.0) {
+						extraData = "  (pumps: " + Math.Floor (1000 * tank.mass) / 1000.0 + " Tons/volume )";
+					}
+					GUILayout.Label(extraData, GUILayout.Width (150));
+
+					if(GUILayout.Button("Add", GUILayout.Width (130))) {
+						print ("Clicked Add " + tank);
+						tank.maxAmount = Math.Floor (1000 * fuel.availableVolume * tank.efficiency) / 1000.0;
+						tank.amount = tank.maxAmount;
+
+						textFields.Clear ();
+						//textFields[amountField] = tank.amount.ToString();
+						//textFields[maxAmountField] = tank.maxAmount.ToString();
+
 						if(part.symmetryCounterparts.Count > 0) 
 							UpdateSymmetryCounterparts(part);
 
-					}
-					if(tank.efficiency < 1.0 && tank.mass > 0.0) {
-						GUILayout.Label(" (cryo: " + (Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f) + "%, " 
-						                + (Math.Floor (1000*tank.mass)/1000.0) + " Tons/volume )", GUILayout.Width (200));
-					} else if(tank.efficiency < 1.0) {
-						GUILayout.Label(" (cryo: " + (Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f) + "%)", GUILayout.Width (200));
-					} else if(tank.mass > 0.0) {
-						GUILayout.Label(" (pumps: " + (Math.Floor (1000*tank.mass)/1000.0) + " Tons/volume )", GUILayout.Width (200));
-						
 					}
 				} else {
-					GUILayout.Label ("no room to add a " + tank + " tank.");
+					GUILayout.Label ("  No room for tank.", GUILayout.Width (150));
 					
 				}
 				GUILayout.EndHorizontal ();
@@ -636,14 +642,14 @@ namespace FuelModule
 									tank.maxAmount = 0;
 								}
 								
-								float total_volume = (float) (fuel.availableVolume * (1 - inefficiency / ratio_factor));
+								double total_volume = fuel.availableVolume * (1 - inefficiency / ratio_factor);
 								foreach(ModuleEngines.Propellant tfuel in thruster.propellants)
 								{
 									if(PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
 										ModuleFuelTanks.FuelTank tank = fuel.fuelList.Find (t => t.name.Equals (tfuel.name));
 										if(tank) {
-											tank.maxAmount = total_volume * tfuel.ratio / ratio_factor;
-											tank.amount = total_volume * tfuel.ratio / ratio_factor;
+											tank.maxAmount = Math.Floor (1000 * total_volume * tfuel.ratio / ratio_factor) / 1000.0;
+											tank.amount = tank.maxAmount;
 										}
 									}
 								}
@@ -668,8 +674,8 @@ namespace FuelModule
 				if(pFuel)
 				{
 					foreach(ModuleFuelTanks.FuelTank tank in pFuel.fuelList) {
-						tank.maxAmount = 0;
 						tank.amount = 0;
+						tank.maxAmount = 0;
 					}
 					foreach(ModuleFuelTanks.FuelTank tank in fuel.fuelList)
 					{
