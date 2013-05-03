@@ -255,6 +255,8 @@ namespace FuelModule
 		
 		public override void OnSave (ConfigNode node)
 		{
+			if (fuelList == null)
+				fuelList = new List<FuelTank> ();
 			foreach (FuelTank tank in fuelList) {
 				ConfigNode subNode = new ConfigNode("TANK");
 				tank.Save (subNode);
@@ -294,6 +296,7 @@ namespace FuelModule
 						else {
 							ConfigNode node = new ConfigNode("MODULE");
 							pModule.OnSave (node);
+							print ("node from prefab:" + node);
 							this.OnLoad (node);
 						}
 					}
@@ -367,6 +370,7 @@ namespace FuelModule
 
 	public class fuelManager : MonoBehaviour
 	{
+
 		public static GameObject GameObjectInstance;
 		
 		public void Awake()
@@ -380,33 +384,37 @@ namespace FuelModule
 			if (!HighLogic.LoadedSceneIsEditor || !editor) {
 				return;
 			}
-			
+
 			if (editor.editorScreen == EditorLogic.EditorScreen.Actions) {
-				if (EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleFuelTanks")))
-					screenRect = GUILayout.Window (1, new Rect(0, 400, 350, 128), fuelManagerGUI, "Fuel Tanks");
-				else
+				if (EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleFuelTanks"))) {
+					Rect screenRect = new Rect(0, 365, 428, (Screen.height - 365));
+					GUILayout.Window (1, screenRect, fuelManagerGUI, "Fuel Tanks");
+				} else
 					textFields.Clear ();
-				
+				/*
 				if(screenRect.width < 350)
 					screenRect.width = 350;
 				if(screenRect.height < 128)
 					screenRect.height = 128;
+				*/
 			} else {
 				textFields.Clear ();
 			}
 		}
-		
-		Rect screenRect = new Rect(0, 400, 350, 128);
 		private List<string> textFields = new List<string>();
-		
+		private Part lastPart;		
 		private void fuelManagerGUI(int WindowID)
 		{
 			Part part = EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleFuelTanks"));
 			if (!part) {
-				GUILayout.BeginHorizontal();
-				GUILayout.Label("No part found.");
+				GUILayout.BeginHorizontal ();
+				GUILayout.Label ("No part found.");
 				GUILayout.EndHorizontal ();
 				return;
+			} else if (part != lastPart) {
+				// selected a new part, so clear the window
+				textFields.Clear ();
+				lastPart = part;
 			}
 			
 			ModuleFuelTanks fuel = (ModuleFuelTanks) part.Modules["ModuleFuelTanks"];
@@ -416,7 +424,6 @@ namespace FuelModule
 				GUILayout.EndHorizontal ();
 				return;
 			}
-			
 			
 			GUILayout.BeginHorizontal();
 			GUILayout.Label ("Current mass: " + Math.Round(1000*(part.mass + part.GetResourceMass()))/1000.0 + " Ton(s)");
@@ -506,18 +513,24 @@ namespace FuelModule
 						
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
+
+						if(part.symmetryCounterparts.Count > 0) 
+							UpdateSymmetryCounterparts(part);
+
 					}
-					
-					GUILayout.EndHorizontal ();
-					GUILayout.BeginHorizontal ();
 					if(GUILayout.Button ("Remove", GUILayout.Width (60))) {
 						print ("Clicked Remove " + tank);
 						
 						textFields.Clear ();
 						tank.maxAmount = 0;
+						if(part.symmetryCounterparts.Count > 0) 
+							UpdateSymmetryCounterparts(part);
+						
 					}
-					
-					GUILayout.Label ("  tank mass: " + Math.Round (1000 * amount * (part.Resources[tank].info.density) + tank.mass)/1000.0, GUILayout.Width(150));
+
+					GUILayout.EndHorizontal ();
+					GUILayout.BeginHorizontal ();
+					GUILayout.Label ("            tank mass: " + Math.Round (1000 * amount * part.Resources[tank].info.density + tank.mass)/1000.0, GUILayout.Width(210));
 					GUILayout.Label ("tank volume: " + (Math.Round (100 * maxAmount / tank.efficiency)/100).ToString (), GUILayout.Width (180));
 					
 				} else if(fuel.availableVolume > 0) {
@@ -527,6 +540,9 @@ namespace FuelModule
 						print ("Clicked Add " + tank);
 						textFields.Clear ();
 						tank.maxAmount = fuel.availableVolume;
+						if(part.symmetryCounterparts.Count > 0) 
+							UpdateSymmetryCounterparts(part);
+
 					}
 					if(tank.efficiency < 1.0 && tank.mass > 0.0) {
 						GUILayout.Label(" (cryo: " + (Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f) + "%, " 
@@ -552,30 +568,12 @@ namespace FuelModule
 					tank.amount = 0;
 					tank.maxAmount = 0;
 				}
+				if(part.symmetryCounterparts.Count > 0) 
+					UpdateSymmetryCounterparts(part);
+
 			}	
 			GUILayout.EndHorizontal();
-			if(part.symmetryCounterparts.Count > 0) {
-				GUILayout.BeginHorizontal();
-				if(GUILayout.Button ("Copy to Symmetry Group")) {
-					foreach(Part sPart in part.symmetryCounterparts)
-					{
-						ModuleFuelTanks pFuel = (ModuleFuelTanks) sPart.Modules["ModuleFuelTanks"];
-						if(pFuel)
-						{
-							foreach(ModuleFuelTanks.FuelTank tank in fuel.fuelList)
-							{
-								ModuleFuelTanks.FuelTank pTank = pFuel.fuelList.Find (t => t.name.Equals (tank.name));
-								if(pTank) {
-									pTank.maxAmount = tank.maxAmount;
-									pTank.amount = tank.amount;
-								}
-							}
-						}
-					}
-				}
-				GUILayout.EndHorizontal();
-			}			
-			
+
 			if(GetEnginesFedBy(part).Count > 0)
 			{
 				List<string> check_dupes = new List<string>();
@@ -649,6 +647,8 @@ namespace FuelModule
 										}
 									}
 								}
+								if(part.symmetryCounterparts.Count > 0) 
+									UpdateSymmetryCounterparts(part);
 							}
 							GUILayout.EndHorizontal ();
 						}
@@ -656,7 +656,36 @@ namespace FuelModule
 				}
 			}
 		}
-		
+
+		public void UpdateSymmetryCounterparts(Part part)
+		{
+			ModuleFuelTanks fuel = (ModuleFuelTanks) part.Modules["ModuleFuelTanks"];
+			if (!fuel)
+				return;
+			foreach(Part sPart in part.symmetryCounterparts)
+			{
+				ModuleFuelTanks pFuel = (ModuleFuelTanks) sPart.Modules["ModuleFuelTanks"];
+				if(pFuel)
+				{
+					foreach(ModuleFuelTanks.FuelTank tank in pFuel.fuelList) {
+						tank.maxAmount = 0;
+						tank.amount = 0;
+					}
+					foreach(ModuleFuelTanks.FuelTank tank in fuel.fuelList)
+					{
+						if(tank.maxAmount > 0)
+						{
+							ModuleFuelTanks.FuelTank pTank = pFuel.fuelList.Find (t => t.name.Equals (tank.name));
+							if(pTank) {
+								pTank.maxAmount = tank.maxAmount;
+								pTank.amount = tank.amount;
+							}
+						}
+					}
+				}
+			}
+
+		}
 		public List<Part> GetEnginesFedBy(Part part)
 		{
 			
