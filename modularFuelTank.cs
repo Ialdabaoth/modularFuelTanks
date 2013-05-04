@@ -29,7 +29,8 @@ namespace FuelModule
 			public string name = "UnknownFuel";
 			public float efficiency = 1.0f;
 			public float mass = 0.0f;
-			public double loss_rate = 0.0f;
+			public double loss_rate = 0.0;
+			public float temperature = 300.0f;
 
 			[System.NonSerialized]
 			public ModuleFuelTanks module;
@@ -143,6 +144,8 @@ namespace FuelModule
 					name = node.GetValue ("name");
 					if(node.HasValue ("efficiency"))
 						float.TryParse (node.GetValue("efficiency"), out efficiency);
+					if(node.HasValue ("temperature"))
+						float.TryParse (node.GetValue("temperature"), out temperature);
 					if(node.HasValue ("loss_rate"))
 						double.TryParse (node.GetValue("loss_rate"), out loss_rate);
 					if(node.HasValue ("mass"))
@@ -168,6 +171,7 @@ namespace FuelModule
 					node.AddValue ("name", name);
 					node.AddValue ("efficiency", efficiency);
 					node.AddValue ("mass", mass);
+					node.AddValue ("temperature", temperature);
 					node.AddValue ("loss_rate", loss_rate);
 					if(HighLogic.LoadedSceneIsEditor) {
 						node.AddValue ("amount", amount);
@@ -279,31 +283,44 @@ namespace FuelModule
 			}
 
 			if (fuelList.Count == 0) {
-				AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
-				if(partData == null) {
-					print ("Could not find AvailablePart for " + part.partName);
-				} else if(partData.partPrefab == null) {
-					print ("AvailablePart.partPrefab is null.");
-				} else {
-					Part prefab = partData.partPrefab;
-					if(!prefab.Modules.Contains ("ModuleFuelTanks"))
-					{
-						print ("AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
+				Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
+				                                             && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count >0);
+				if(!prefab) {
+
+					AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
+					if(partData == null) {
+						print ("Could not find AvailablePart for " + part.partName);
+					} else if(partData.partPrefab == null) {
+						print ("AvailablePart.partPrefab is null.");
 					} else {
-						ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
-						if(pModule == this)
-							print ("Copying from myself won't do any good.");
-						else {
-							ConfigNode node = new ConfigNode("MODULE");
-							pModule.OnSave (node);
-							print ("node from prefab:" + node);
-							this.OnLoad (node);
-						}
+						prefab = partData.partPrefab;
+						if(!prefab.Modules.Contains ("ModuleFuelTanks"))
+						{
+							print ("AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
+							prefab = null;
+						} 
+					}
+				}
+				if(prefab) {
+					ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
+					if(pModule == this)
+						print ("Copying from myself won't do any good.");
+					else {
+						ConfigNode node = new ConfigNode("MODULE");
+						pModule.OnSave (node);
+						print ("node from prefab:" + node);
+						this.OnLoad (node);
 					}
 				}
 			} else {
 				foreach(FuelTank tank in fuelList)
 					tank.module = this;
+				if(HighLogic.LoadedSceneIsEditor) {
+					fuelManager.UpdateSymmetryCounterparts(part);
+
+//					part.OnEditorAttach += CheckSymmetry;
+					// if we detach and then re-attach a configured tank with symmetry on, make sure the copies are configured.
+				}
 			}
 
 			switch(state) {
@@ -319,7 +336,12 @@ namespace FuelModule
 			}
 		}
 
-
+		public void CheckSymmetry()
+		{
+			EditorLogic editor = EditorLogic.fetch;
+			if(editor != null && editor.editorScreen == EditorLogic.EditorScreen.Parts && part.symmetryCounterparts.Count > 0)
+				fuelManager.UpdateSymmetryCounterparts(part);
+		}
 		public override void OnUpdate ()
 		{
 			if (HighLogic.LoadedSceneIsEditor) {
@@ -330,9 +352,8 @@ namespace FuelModule
 			} else {
 				double delta_t = Planetarium.GetUniversalTime () - timestamp;
 				foreach (FuelTank tank in fuelList) {
-					if (tank.amount > 0 && tank.loss_rate > 0) {
-						double loss = tank.maxAmount * tank.loss_rate * part.temperature * delta_t / 300.0; // loss_rate is calibrated to 300 degrees.
-						print ("fuel loss for RESOURCE {" + tank + "}:" + loss);
+					if (tank.amount > 0 && tank.loss_rate > 0 && part.temperature > tank.temperature) {
+						double loss = tank.maxAmount * tank.loss_rate * (part.temperature - tank.temperature) * delta_t; // loss_rate is calibrated to 300 degrees.
 						if (loss > tank.amount)
 							tank.amount = 0;
 						else
@@ -391,12 +412,6 @@ namespace FuelModule
 					GUILayout.Window (1, screenRect, fuelManagerGUI, "Fuel Tanks");
 				} else
 					textFields.Clear ();
-				/*
-				if(screenRect.width < 350)
-					screenRect.width = 350;
-				if(screenRect.height < 128)
-					screenRect.height = 128;
-				*/
 			} else {
 				textFields.Clear ();
 			}
@@ -529,20 +544,15 @@ namespace FuelModule
 						
 					}
 
-//					GUILayout.EndHorizontal ();
-//					GUILayout.BeginHorizontal ();
-//					GUILayout.Label ("             tank mass: " + Math.Round (1000 * amount * part.Resources[tank].info.density + tank.mass) / 1000.0, GUILayout.Width(210));
-//					GUILayout.Label ("tank volume: " + Math.Round (1000 * maxAmount / tank.efficiency) / 1000.0, GUILayout.Width (210));
-					
 				} else if(fuel.availableVolume >= 0.001) {
 					string extraData = " ";
 					if(tank.efficiency < 1.0 && tank.mass > 0.0) {
-						extraData = "  (cryo: " + Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f + "%, " 
+						extraData = "  (tank: " + Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f + "%, " 
 							+ Math.Floor (1000 * tank.mass) / 1000.0 + " Tons/volume )";
 					} else if(tank.efficiency < 1.0) {
-						extraData = "  (cryo: " + Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f + "%)";
+						extraData = "  (tank: " + Math.Floor (1000 - 1000 * tank.efficiency) / 10.0f + "%)";
 					} else if(tank.mass > 0.0) {
-						extraData = "  (pumps: " + Math.Floor (1000 * tank.mass) / 1000.0 + " Tons/volume )";
+						extraData = "  (tank: " + Math.Floor (1000 * tank.mass) / 1000.0 + " Tons/volume )";
 					}
 					GUILayout.Label(extraData, GUILayout.Width (150));
 
@@ -552,8 +562,6 @@ namespace FuelModule
 						tank.amount = tank.maxAmount;
 
 						textFields.Clear ();
-						//textFields[amountField] = tank.amount.ToString();
-						//textFields[maxAmountField] = tank.maxAmount.ToString();
 
 						if(part.symmetryCounterparts.Count > 0) 
 							UpdateSymmetryCounterparts(part);
@@ -663,7 +671,7 @@ namespace FuelModule
 			}
 		}
 
-		public void UpdateSymmetryCounterparts(Part part)
+		public static void UpdateSymmetryCounterparts(Part part)
 		{
 			ModuleFuelTanks fuel = (ModuleFuelTanks) part.Modules["ModuleFuelTanks"];
 			if (!fuel)
