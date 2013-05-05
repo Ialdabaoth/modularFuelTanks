@@ -12,6 +12,43 @@ using KSP.IO;
 
 namespace FuelModule
 {
+	public class RefuelingLaunchClamp: LaunchClamp
+	{
+		[KSPField(isPersistant = true)] 
+		double timestamp = 0.0;
+
+		[KSPField(isPersistant = true)] 
+		double pump_rate = 100.0; // 625 liters/second seems reasonable.
+
+		public override void OnUpdate ()
+		{
+			base.OnUpdate ();
+			if (HighLogic.LoadedSceneIsEditor) {
+				//				if(EditorActionGroups.Instance.GetSelectedParts().Contains (part) ) {
+				//					print ("ModuleFuelTanks.OnUpdate: " + part.partInfo.name + " selected.");
+				//				}
+				
+			} else if (timestamp > 0 && part.parent != null && part.parent.Modules.Contains ("ModuleFuelTanks")) {
+				double delta_t = Planetarium.GetUniversalTime () - timestamp;
+
+				ModuleFuelTanks m = (ModuleFuelTanks) part.parent.Modules["ModuleFuelTanks"];
+				foreach(ModuleFuelTanks.FuelTank tank in m.fuelList) {
+					if(tank.amount < tank.maxAmount) {
+						double top_off = delta_t * pump_rate;
+						if(tank.amount + top_off < tank.maxAmount)
+							tank.amount += top_off;
+						else
+							tank.amount = tank.maxAmount;
+					}
+
+				}
+				timestamp = Planetarium.GetUniversalTime ();
+			} else {
+				timestamp = Planetarium.GetUniversalTime ();
+			}
+		}
+	}
+
 	public class ModuleFuelTanks : PartModule
 	{
 
@@ -352,7 +389,7 @@ namespace FuelModule
 //					print ("ModuleFuelTanks.OnUpdate: " + part.partInfo.name + " selected.");
 //				}
 
-			} else {
+			} else if (timestamp > 0) {
 				double delta_t = Planetarium.GetUniversalTime () - timestamp;
 				foreach (FuelTank tank in fuelList) {
 					if (tank.amount > 0 && tank.loss_rate > 0 && part.temperature > tank.temperature) {
@@ -363,6 +400,8 @@ namespace FuelModule
 							tank.amount -= loss;
 					}
 				}
+				timestamp = Planetarium.GetUniversalTime ();
+			} else {
 				timestamp = Planetarium.GetUniversalTime ();
 			}
 		}
