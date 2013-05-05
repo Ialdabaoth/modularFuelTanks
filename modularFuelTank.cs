@@ -173,10 +173,13 @@ namespace FuelModule
 					node.AddValue ("mass", mass);
 					node.AddValue ("temperature", temperature);
 					node.AddValue ("loss_rate", loss_rate);
-					if(HighLogic.LoadedSceneIsEditor) {
+					//if(HighLogic.LoadedSceneIsEditor) {
+					// You would think we only want to do this in the editor, but 
+					// as it turns out, KSP is terrible about consistently setting
+					// up resources between the editor and the launchpad.
 						node.AddValue ("amount", amount);
 						node.AddValue ("maxAmount", amount);
-					}
+					//}
 				}
 			}
 
@@ -233,7 +236,7 @@ namespace FuelModule
 		
 		public override void OnLoad(ConfigNode node)
 		{
-			print ("========OnLoad called. Node is:=======");
+			print ("========ModuleFuelTanks.OnLoad called. Node is:=======");
 			print (node.ToString ());
 			if (fuelList == null)
 				fuelList = new List<FuelTank> ();
@@ -259,11 +262,16 @@ namespace FuelModule
 		
 		public override void OnSave (ConfigNode node)
 		{
+			print ("========ModuleFuelTanks.OnSave called. Node is:=======");
+			print (node.ToString ());
+
 			if (fuelList == null)
 				fuelList = new List<FuelTank> ();
 			foreach (FuelTank tank in fuelList) {
 				ConfigNode subNode = new ConfigNode("TANK");
 				tank.Save (subNode);
+				print ("========ModuleFuelTanks.OnSave adding subNode:========");
+				print (subNode.ToString());
 				node.AddNode (subNode);
 				tank.module = this;
 			}
@@ -272,31 +280,36 @@ namespace FuelModule
 
 		public override void OnStart (StartState state)
 		{
-			//fuelList.FuelTankle = this;
-			print ("========OnStart called. State is " + state.ToString () + "=======");
+			print ("========ModuleFUelTanks.OnStart( State == " + state.ToString () + ")=======");
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
 			if(fuelList == null) {
-				print ("ModuleFuelTanks.OnStart with null fuelList.");
+				print ("ModuleFuelTanks.OnStart for " + part.partInfo.name + " with null fuelList.");
 				fuelList = new List<ModuleFuelTanks.FuelTank> ();
 			}
 
 			if (fuelList.Count == 0) {
+				// when we get called from the editor, the fuelList won't be populated
+				// because OnLoad() was never called. This is a hack to fix that.
+
+				print ("ModuleFuelTanks.OnStart for " + part.partInfo.name + " with empty fuelList.");
+
 				Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
 				                                             && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count >0);
-				if(!prefab) {
-
+				if(prefab) {
+					print ("ModuleFuelTanks.OnStart: copying from a symmetryCounterpart with a ModuleFuelTanks PartModule");
+				} else {
 					AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
 					if(partData == null) {
-						print ("Could not find AvailablePart for " + part.partName);
+						print ("ModuleFuelTanks.OnStart could not find AvailablePart for " + part.partInfo.name);
 					} else if(partData.partPrefab == null) {
-						print ("AvailablePart.partPrefab is null.");
+						print ("ModuleFuelTanks.OnStart: AvailablePart.partPrefab is null.");
 					} else {
 						prefab = partData.partPrefab;
 						if(!prefab.Modules.Contains ("ModuleFuelTanks"))
 						{
-							print ("AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
+							print ("ModuleFuelTanks.OnStart: AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
 							prefab = null;
 						} 
 					}
@@ -304,50 +317,40 @@ namespace FuelModule
 				if(prefab) {
 					ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
 					if(pModule == this)
-						print ("Copying from myself won't do any good.");
+						print ("ModuleFuelTanks.OnStart: Copying from myself won't do any good.");
 					else {
 						ConfigNode node = new ConfigNode("MODULE");
 						pModule.OnSave (node);
-						print ("node from prefab:" + node);
+						print ("ModuleFuelTanks.OnStart node from prefab:" + node);
 						this.OnLoad (node);
 					}
 				}
-			} else {
-				foreach(FuelTank tank in fuelList)
-					tank.module = this;
-				if(HighLogic.LoadedSceneIsEditor) {
-					fuelManager.UpdateSymmetryCounterparts(part);
-
-//					part.OnEditorAttach += CheckSymmetry;
+			} 
+			foreach(FuelTank tank in fuelList)
+				tank.module = this;
+			if(HighLogic.LoadedSceneIsEditor) {
+				fuelManager.UpdateSymmetryCounterparts(part);
 					// if we detach and then re-attach a configured tank with symmetry on, make sure the copies are configured.
-				}
 			}
 
-			switch(state) {
-			case StartState.Editor:
-				// when we get called from the editor, the fuelList won't be populated
-				// because OnLoad() was never called. This is a hack to fix that.
-
-				//FIXME: Hack caused crashing and memory leaks.
-
-				break;
-			default:
-				break;
-			}
 		}
 
 		public void CheckSymmetry()
 		{
+			print ("ModuleFuelTanks.CheckSymmetry for " + part.partInfo.name);
 			EditorLogic editor = EditorLogic.fetch;
-			if(editor != null && editor.editorScreen == EditorLogic.EditorScreen.Parts && part.symmetryCounterparts.Count > 0)
-				fuelManager.UpdateSymmetryCounterparts(part);
+			if (editor != null && editor.editorScreen == EditorLogic.EditorScreen.Parts && part.symmetryCounterparts.Count > 0) {
+				print ("ModuleFuelTanks.CheckSymmetry: updating " + part.symmetryCounterparts.Count + " other parts.");
+				fuelManager.UpdateSymmetryCounterparts (part);
+			}
+			print ("ModuleFuelTanks checked symmetry");
 		}
 		public override void OnUpdate ()
 		{
 			if (HighLogic.LoadedSceneIsEditor) {
-				if(EditorActionGroups.Instance.GetSelectedParts().Contains (part) ) {
-					print ("selected.");
-				}
+//				if(EditorActionGroups.Instance.GetSelectedParts().Contains (part) ) {
+//					print ("ModuleFuelTanks.OnUpdate: " + part.partInfo.name + " selected.");
+//				}
 
 			} else {
 				double delta_t = Planetarium.GetUniversalTime () - timestamp;
