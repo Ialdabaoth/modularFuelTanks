@@ -48,6 +48,70 @@ namespace FuelModule
 			}
 		}
 	}
+	public class ModuleEngineConfigs : PartModule
+	{
+		[KSPField(isPersistant = true)] 
+		public string configuration = "";
+		[KSPField(isPersistant = true)] 
+		public bool modded = false;
+
+		public List<ConfigNode> configs;
+		public ConfigNode config;
+
+		public override void OnAwake ()
+		{
+			if(configs == null)
+				configs = new List<ConfigNode>();
+		}
+
+		public override void OnLoad (ConfigNode node)
+		{
+			base.OnLoad (node);
+			if (configs == null)
+				configs = new List<ConfigNode> ();
+			else
+				configs.Clear ();
+
+			foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
+				ConfigNode newNode = new ConfigNode("CONFIG");
+				subNode.CopyTo (newNode);
+				configs.Add (newNode);
+				if(newNode.GetValue ("name").Equals (configuration)) {
+					config = new ConfigNode("MODULE");
+					subNode.CopyTo (config);
+					config.name = "MODULE";
+					config.SetValue ("name", "ModuleEngines");
+				}
+			}
+		}
+
+		public override void OnSave (ConfigNode node)
+		{
+			foreach (ConfigNode subNode in configs) {
+				node.AddNode (subNode);
+			}
+			base.OnSave (node);
+		}
+
+		public override void OnStart (StartState state)
+		{
+			ConfigNode config = null;
+			if(modded)
+				config = configs.Find (c => c.GetValue ("name").Equals (configuration));
+
+			if (config != null) {
+				ModuleEngines thruster = (ModuleEngines) part.Modules["ModuleEngines"];
+				ConfigNode newConfig = new ConfigNode ("MODULE");
+				config.CopyTo (newConfig);
+				newConfig.name = "MODULE";
+				newConfig.SetValue ("name", "ModuleEngines");
+				print ("replacing ModuleEngines with:");
+				print (newConfig.ToString ());
+				thruster.Load (newConfig);
+			}
+		}
+
+	}
 
 	public class ModuleFuelTanks : PartModule
 	{
@@ -275,6 +339,9 @@ namespace FuelModule
 		{
 			print ("========ModuleFuelTanks.OnLoad called. Node is:=======");
 			print (node.ToString ());
+
+			base.OnLoad (node);
+
 			if (fuelList == null)
 				fuelList = new List<FuelTank> ();
 			else
@@ -452,12 +519,51 @@ namespace FuelModule
 				if (EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleFuelTanks"))) {
 					Rect screenRect = new Rect(0, 365, 430, (Screen.height - 365));
 					GUILayout.Window (1, screenRect, fuelManagerGUI, "Fuel Tanks");
-				} else
+				} else {
 					textFields.Clear ();
+
+					if (EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleEngineConfigs"))) {
+						Rect screenRect = new Rect(0, 365, 430, (Screen.height - 365));
+						GUILayout.Window (1, screenRect, engineManagerGUI, "Engine Configurations");
+					}
+				}
 			} else {
 				textFields.Clear ();
 			}
 		}
+
+		private void engineManagerGUI(int WindowID)
+		{
+			Part part = EditorActionGroups.Instance.GetSelectedParts ().Find (p => p.Modules.Contains ("ModuleEngineConfigs"));
+			if (!part) {
+				GUILayout.BeginHorizontal ();
+				GUILayout.Label ("No part found.");
+				GUILayout.EndHorizontal ();
+				return;
+			}
+			ModuleEngineConfigs engine = (ModuleEngineConfigs) part.Modules ["ModuleEngineConfigs"];
+
+			foreach (ConfigNode config in engine.configs) {
+				GUILayout.BeginHorizontal();
+				if(config.GetValue ("name").Equals (engine.configuration)) {
+					GUILayout.Label ("Current configuration: " + engine.configuration);
+				} else if(GUILayout.Button ("Configure to " + config.GetValue ("name"))) {
+					engine.configuration = config.GetValue ("name");
+					engine.modded = true;
+					ModuleEngines thruster = (ModuleEngines) part.Modules["ModuleEngines"];
+					engine.config = new ConfigNode("MODULE");
+					config.CopyTo (engine.config);
+					engine.config.name = "MODULE";
+					engine.config.SetValue ("name", "ModuleEngines");
+					print ("replacing ModuleEngines with:");
+					print (engine.config.ToString ());
+					thruster.Load (engine.config);
+					UpdateSymmetryCounterparts (part);
+				}
+				GUILayout.EndHorizontal ();
+			}
+		}
+
 		private List<string> textFields = new List<string>();
 		private Part lastPart;		
 		private void fuelManagerGUI(int WindowID)
@@ -639,50 +745,51 @@ namespace FuelModule
 				GUILayout.EndHorizontal();
 				foreach(Part engine in GetEnginesFedBy(part))
 				{
-					if(!check_dupes.Contains (engine.partInfo.title)) {
-						check_dupes.Add (engine.partInfo.title);
-						double ratio_factor = 0.0;
-						double inefficiency = 0.0;
-						ModuleEngines thruster = (ModuleEngines) engine.Modules["ModuleEngines"];
-						
-						// tank math:
-						// inefficiency = sum[(1 - efficiency) * ratio]
-						// fluid_v = v * (1 - inefficiency)
-						// f = fluid_v * ratio
-						
-						
-						foreach(ModuleEngines.Propellant tfuel in thruster.propellants)
-						{
-							if(PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null) {
-								print ("Unknown RESOURCE {" + tfuel.name + "}");
+					double ratio_factor = 0.0;
+					double inefficiency = 0.0;
+					ModuleEngines thruster = (ModuleEngines) engine.Modules["ModuleEngines"];
+					
+					// tank math:
+					// inefficiency = sum[(1 - efficiency) * ratio]
+					// fluid_v = v * (1 - inefficiency)
+					// f = fluid_v * ratio
+					
+					
+					foreach(ModuleEngines.Propellant tfuel in thruster.propellants)
+					{
+						if(PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null) {
+							print ("Unknown RESOURCE {" + tfuel.name + "}");
+							ratio_factor = 0.0;
+							break;
+						} else if(PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE) {
+							//ignore this propellant, since it isn't serviced by fuel tanks
+						} else {
+							ModuleFuelTanks.FuelTank tank = fuel.fuelList.Find (f => f.ToString ().Equals (tfuel.name ));
+							if(tank) {
+								inefficiency += (1 - tank.efficiency) * tfuel.ratio;
+								ratio_factor += tfuel.ratio;
+							} else {
 								ratio_factor = 0.0;
 								break;
-							} else if(PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE) {
-								//ignore this propellant, since it isn't serviced by fuel tanks
-							} else {
-								ModuleFuelTanks.FuelTank tank = fuel.fuelList.Find (f => f.ToString ().Equals (tfuel.name ));
-								if(tank) {
-									inefficiency += (1 - tank.efficiency) * tfuel.ratio;
-									ratio_factor += tfuel.ratio;
-								} else {
-									ratio_factor = 0.0;
-									break;
-								}
 							}
 						}
-						if(ratio_factor > 0.0)
+					}
+					if(ratio_factor > 0.0)
+					{
+						string label = "";
+						foreach(ModuleEngines.Propellant tfuel in thruster.propellants)
 						{
-							string label = "";
-							foreach(ModuleEngines.Propellant tfuel in thruster.propellants)
-							{
-								if(PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
-									if(label.Length > 0)
-										label += " / ";
-									label += Math.Round (100 * tfuel.ratio / ratio_factor).ToString () + "% " + tfuel.name;	
-								}
-								
+							if(PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
+								if(label.Length > 0)
+									label += " / ";
+								label += Math.Round (100 * tfuel.ratio / ratio_factor).ToString () + "% " + tfuel.name;	
 							}
-							label = "Configure to " + label + "\n for " + engine.partInfo.title + "";
+							
+						}
+						label = "Configure to " + label + "\n for " + engine.partInfo.title + "";
+						if(!check_dupes.Contains (label)) {
+							check_dupes.Add (label);
+
 							GUILayout.BeginHorizontal();
 							if(GUILayout.Button (label)) {
 								textFields.Clear ();
@@ -715,26 +822,40 @@ namespace FuelModule
 
 		public static void UpdateSymmetryCounterparts(Part part)
 		{
-			ModuleFuelTanks fuel = (ModuleFuelTanks) part.Modules["ModuleFuelTanks"];
-			if (!fuel)
-				return;
-			foreach(Part sPart in part.symmetryCounterparts)
-			{
-				ModuleFuelTanks pFuel = (ModuleFuelTanks) sPart.Modules["ModuleFuelTanks"];
-				if(pFuel)
-				{
-					foreach(ModuleFuelTanks.FuelTank tank in pFuel.fuelList) {
-						tank.amount = 0;
-						tank.maxAmount = 0;
+			ModuleEngineConfigs engine = (ModuleEngineConfigs)part.Modules ["ModuleEngineConfigs"];
+			if (engine) {
+				foreach (Part sPart in part.symmetryCounterparts) {
+					ModuleEngineConfigs sEngine = (ModuleEngineConfigs) sPart.Modules ["ModuleEngineConfigs"];
+					if(sEngine) {
+						sEngine.configuration = engine.configuration;
+						sEngine.config = engine.config;
+						sEngine.modded = true;
+						ModuleEngines thruster = (ModuleEngines) sPart.Modules["ModuleEngines"];
+						thruster.Load (sEngine.config);
 					}
-					foreach(ModuleFuelTanks.FuelTank tank in fuel.fuelList)
+				}
+			}
+			ModuleFuelTanks fuel = (ModuleFuelTanks) part.Modules["ModuleFuelTanks"];
+			if (fuel)
+			{
+				foreach(Part sPart in part.symmetryCounterparts)
+				{
+					ModuleFuelTanks pFuel = (ModuleFuelTanks) sPart.Modules["ModuleFuelTanks"];
+					if(pFuel)
 					{
-						if(tank.maxAmount > 0)
+						foreach(ModuleFuelTanks.FuelTank tank in pFuel.fuelList) {
+							tank.amount = 0;
+							tank.maxAmount = 0;
+						}
+						foreach(ModuleFuelTanks.FuelTank tank in fuel.fuelList)
 						{
-							ModuleFuelTanks.FuelTank pTank = pFuel.fuelList.Find (t => t.name.Equals (tank.name));
-							if(pTank) {
-								pTank.maxAmount = tank.maxAmount;
-								pTank.amount = tank.amount;
+							if(tank.maxAmount > 0)
+							{
+								ModuleFuelTanks.FuelTank pTank = pFuel.fuelList.Find (t => t.name.Equals (tank.name));
+								if(pTank) {
+									pTank.maxAmount = tank.maxAmount;
+									pTank.amount = tank.amount;
+								}
 							}
 						}
 					}

@@ -17,15 +17,17 @@ MODULE
 	TANK
 	{
 	   name = LiquidH2
-	   loss_rate = 0.000015
 	   efficiency = 0.975
 	   mass = 0.000
+	   temperature = -253
+	   loss_rate = 0.000015
 	} 
 	TANK
 	{
 	   name = LiquidOxygen
 	   efficiency = 0.995
 	   mass = 0.0003125
+	   temperature = -183
 	   loss_rate = 0.0000025
 	} 
 	TANK
@@ -73,6 +75,105 @@ Assuming the TANK configuration above, MaxAmount = 3600 will create a tank that 
 as the tank's Part is at a temperature below -183 Celsius, no LiquidOxygen will leak out;
 otherwise, LiquidOxygen will begin leaking out at a rate of (3600*0.0000000001) = 0.00000036 units per second per degree Celcius that the part's temperature exceeds -183. At room temperature (25C), this works out to about 0.27 units per hour.
 
+
 2. Once you have the module specified correctly in part.cfg, you can load up the tank in the editor. After attaching it to your ship, go to the Action Groups menu and click on the tank. There you will see various options - each fuel type will have a button to add a tank, or text boxes to adjust the tank volume and initial amount of that fuel, as well as a button to remove all tanks from this part. When you edit a If the system detects an engine attached, it will (usually) also give you a button to remove all tanks and then fill the entire volume with that engine's fuel, in the ratio that that engine consumes it.
 
 When you edit a fuel tank, its load out is automatically copied to all identical symmetrical fuel tanks. If you want to have an asymmetrical load-out, attach each tank separately with symmetry off, then edit each tank individually.
+
+
+3. You can also configure engines to use multiple fuel types, like so:
+
+MODULE
+{
+	name = ModuleEngineConfigs
+	configuration = LiquidFuel+Oxidizer (50 Thrust, 370 Isp)
+	modded = false
+	CONFIG
+	{
+		name = LiquidFuel+Oxidizer (50 Thrust, 370 Isp)
+		thrustVectorTransformName = thrustTransform
+		exhaustDamage = True
+		ignitionThreshold = 0.1
+		minThrust = 0
+		maxThrust = 50
+		heatProduction = 300
+		fxOffset = 0, 0, 0.21
+		PROPELLANT
+		{
+		 	name = LiquidFuel
+       	  		ratio = 0.4
+			DrawGauge = True
+		}
+		PROPELLANT
+		{
+			name = Oxidizer
+			ratio = 0.6
+		}
+		atmosphereCurve
+ 		{
+   		 key = 0 370
+  		 key = 1 270
+	 	}
+	
+	}
+
+	CONFIG
+	{
+		name = LiquidFuel+LiquidOxygen (55 Thrust, 390 Isp)
+		thrustVectorTransformName = thrustTransform
+		exhaustDamage = True
+		ignitionThreshold = 0.1
+		minThrust = 0
+		maxThrust = 55
+		heatProduction = 275
+		fxOffset = 0, 0, 0.21
+		PROPELLANT
+		{
+		 	name = LiquidFuel
+       	  		ratio = 0.35
+			DrawGauge = True
+		}
+		PROPELLANT
+		{
+			name = LiquidOxygen
+			ratio = 0.65
+		}
+		atmosphereCurve
+ 		{
+   		 key = 0 390
+  		 key = 1 300
+	 	}
+	
+	}
+
+	CONFIG
+	{
+		name = LiquidH2+LiquidOxygen (40 Thrust, 460 Isp)
+		thrustVectorTransformName = thrustTransform
+		exhaustDamage = True
+		ignitionThreshold = 0.1
+		minThrust = 0
+		maxThrust = 40
+		heatProduction = 250
+		fxOffset = 0, 0, 0.21
+		PROPELLANT
+		{
+		 	name = LiquidH2
+       	  		ratio = 0.73
+			DrawGauge = True
+		}
+		PROPELLANT
+		{
+			name = LiquidOxygen
+			ratio = 0.27
+		}
+		atmosphereCurve
+ 		{
+   		 key = 0 460
+  		 key = 1 310
+	 	}
+	
+	}
+}
+
+Each CONFIG node is effectively a ModuleEngines MODULE node that will overwrite the part's original ModuleEngines node when selected in the editor. Note that configuration=<name> MUST point to a CONFIG which matches the default ModuleEngines node.
