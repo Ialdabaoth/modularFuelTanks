@@ -1,8 +1,8 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="modularFuelTank.cs">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="../moduleManager/moduleManager.cs">
     <Files>
-      <File FileName="modularFuelTank.cs" Line="1" Column="1" />
+      <File FileName="../moduleManager/moduleManager.cs" Line="16" Column="95" />
     </Files>
     <Pads>
       <Pad Id="ProjectPad">
